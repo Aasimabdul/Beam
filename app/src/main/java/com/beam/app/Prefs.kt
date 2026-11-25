@@ -1,0 +1,32 @@
+package com.beam.app
+
+import android.content.Context
+import android.os.Build
+import java.util.UUID
+
+/** The few settings Beam keeps: a stable device id, the visible name and the last HTTP port. */
+object Prefs {
+    private fun p(c: Context) = c.getSharedPreferences("beam", Context.MODE_PRIVATE)
+
+    fun uuid(c: Context): String {
+        val s = p(c)
+        var id = s.getString("uuid", null)
+        if (id == null) {
+            id = UUID.randomUUID().toString()
+            s.edit().putString("uuid", id).apply()
+        }
+        return id
+    }
+
+    fun name(c: Context): String = p(c).getString("name", null)?.takeIf { it.isNotBlank() } ?: "Beam (${Build.MODEL})"
+
+    fun setName(c: Context, n: String) {
+        p(c).edit().putString("name", n.trim().take(40)).apply()
+    }
+
+    fun port(c: Context): Int = p(c).getInt("port", 0)
+
+    fun setPort(c: Context, port: Int) {
+        p(c).edit().putInt("port", port).apply()
+    }
+}
