@@ -61,3 +61,10 @@ The Linux desktop implementation is in `linux/`. It reuses the DLNA/UPnP core, u
 - Build locally with `dotnet restore linux/Beam.Linux.csproj` then `dotnet run --project linux/Beam.Linux.csproj`.
 - GitHub Actions builds a portable archive plus Debian and RPM packages.
 - This is an initial port: seek position/duration reporting and desktop integration are still incomplete. Check the Linux workflow result before using its packages.
+
+
+### Linux UI update
+
+The refreshed Linux home screen starts the receiver automatically when Beam opens. Use **Rename** in the top bar to change the advertised device name without stopping the receiver. Playback controls include aspect ratio (Auto, 4:3, 16:9, 21:9), volume/mute, and brightness.
+
+**Protocol note:** Beam advertises a DLNA/UPnP receiver. Windows' “Cast to device” works only where the sender chooses DLNA; Google Chromecast / Chrome's Cast protocol is different and is not supported by this build. Video opens in mpv, while playback adjustments remain available in Beam's window.
