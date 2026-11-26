@@ -2,7 +2,7 @@ name: Build Linux desktop
 
 on:
   push:
-    branches: [main, feature/linux-desktop]
+    branches: [main, feature/linux-desktop, feature/linux-ui-refresh]
     paths:
       - 'linux/**'
       - 'windows/Core/**'
