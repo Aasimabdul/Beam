@@ -1,0 +1,92 @@
+name: Build Linux desktop
+
+on:
+  push:
+    branches: [main, feature/linux-desktop]
+    paths:
+      - 'linux/**'
+      - 'windows/Core/**'
+      - '.github/workflows/linux-desktop.yml'
+  pull_request:
+    paths:
+      - 'linux/**'
+      - 'windows/Core/**'
+      - '.github/workflows/linux-desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Install Linux packaging tools
+        run: sudo apt-get update && sudo apt-get install -y dpkg-dev rpm
+      - name: Restore
+        run: dotnet restore linux/Beam.Linux.csproj
+      - name: Build
+        run: dotnet build linux/Beam.Linux.csproj -c Release --no-restore
+      - name: Publish self-contained Linux x64
+        run: dotnet publish linux/Beam.Linux.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish/linux-x64
+      - name: Create portable archive and Debian package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/beam-linux/DEBIAN dist/beam-linux/usr/bin dist/beam-linux/usr/share/applications
+          install -m 0755 publish/linux-x64/Beam.Linux dist/beam-linux/usr/bin/beam
+          cat > dist/beam-linux/DEBIAN/control <<'EOF'
+          Package: beam
+          Version: 0.2.0
+          Section: sound
+          Priority: optional
+          Architecture: amd64
+          Depends: mpv, libx11-6, libice6, libsm6
+          Maintainer: Aasimabdul
+          Description: Lightweight DLNA/UPnP media receiver for Linux
+           Beam receives media from DLNA sender apps on your local network.
+          EOF
+          cat > dist/beam-linux/usr/share/applications/beam.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=Beam
+          Comment=DLNA/UPnP media receiver
+          Exec=beam
+          Terminal=false
+          Categories=AudioVideo;Player;
+          EOF
+          dpkg-deb --build dist/beam-linux dist/beam_0.2.0_amd64.deb
+          mkdir -p dist/portable
+          cp publish/linux-x64/Beam.Linux dist/portable/beam
+          tar -C dist/portable -czf dist/beam-linux-x64.tar.gz beam
+      - name: Create RPM package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          cat > rpmbuild/SPECS/beam.spec <<'EOF'
+          Name: beam
+          Version: 0.2.0
+          Release: 1
+          Summary: Lightweight DLNA/UPnP media receiver
+          License: GPL-3.0-only
+          Requires: mpv
+          BuildArch: x86_64
+          %description
+          Beam receives media from DLNA sender apps on your local network.
+          %install
+          mkdir -p %{buildroot}/usr/bin
+          install -m 0755 %{_topdir}/../publish/linux-x64/Beam.Linux %{buildroot}/usr/bin/beam
+          %files
+          /usr/bin/beam
+          EOF
+          rpmbuild --define "_topdir $PWD/rpmbuild" -bb rpmbuild/SPECS/beam.spec
+          cp rpmbuild/RPMS/x86_64/*.rpm dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Beam-Linux-x64
+          path: dist/*
