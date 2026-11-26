@@ -7,82 +7,257 @@ namespace Beam.Linux;
 
 internal sealed class MainWindow : Window
 {
+    private static readonly IBrush BackgroundBrush = Brush.Parse("#080D19");
+    private static readonly IBrush PanelBrush = Brush.Parse("#101A2B");
+    private static readonly IBrush BorderBrush = Brush.Parse("#24344D");
+    private static readonly IBrush AccentBrush = Brush.Parse("#52D6FF");
+    private static readonly IBrush MutedBrush = Brush.Parse("#93A4BE");
+
+    private readonly MpvPlayer player;
     private readonly LinuxReceiver receiver;
     private readonly TextBlock status;
     private readonly TextBlock deviceName;
-    private readonly Button toggle;
-    private readonly TextBox nameBox;
+    private readonly TextBlock portLabel;
+    private readonly Slider volumeSlider;
+    private readonly Slider brightnessSlider;
+    private readonly ComboBox aspectPicker;
+    private readonly Button muteButton;
+    private bool mute;
 
     public MainWindow()
     {
         Title = "Beam";
-        Width = 520;
-        Height = 430;
-        MinWidth = 420;
-        MinHeight = 360;
-        Background = Brush.Parse("#0B1020");
-        Foreground = Brush.Parse("#EAF2FF");
-        var player = new MpvPlayer();
+        Width = 760;
+        Height = 720;
+        MinWidth = 560;
+        MinHeight = 600;
+        Background = BackgroundBrush;
+        Foreground = Brush.Parse("#EDF5FF");
+
+        player = new MpvPlayer();
         receiver = new LinuxReceiver(player);
 
-        status = new TextBlock { Text = "Receiver is off", FontSize = 16, Foreground = Brush.Parse("#9CAAC4") };
-        deviceName = new TextBlock { Text = receiver.Name, FontSize = 22, FontWeight = FontWeight.SemiBold };
-        toggle = new Button { Content = "Start receiver", Padding = new Thickness(18, 12), HorizontalAlignment = HorizontalAlignment.Stretch };
-        toggle.Click += (_, _) => ToggleReceiver();
-        nameBox = new TextBox { Text = receiver.Name, Watermark = "Device name" };
-        var rename = new Button { Content = "Apply name" };
-        rename.Click += (_, _) =>
+        var renameButton = new Button
         {
-            var name = nameBox.Text?.Trim();
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                receiver.Name = name;
-                deviceName.Text = name;
-                if (receiver.IsRunning) { receiver.Stop(); ToggleReceiver(); }
-            }
+            Content = "✎  Rename",
+            Padding = new Thickness(14, 8),
+            Background = PanelBrush,
+            Foreground = AccentBrush
+        };
+        renameButton.Click += async (_, _) => await ShowRenameDialog();
+
+        var brand = new TextBlock
+        {
+            Text = "BEAM",
+            FontSize = 14,
+            FontWeight = FontWeight.Bold,
+            Foreground = AccentBrush,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var topBar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 22) };
+        topBar.Children.Add(brand);
+        Grid.SetColumn(renameButton, 1);
+        topBar.Children.Add(renameButton);
+
+        deviceName = new TextBlock { Text = receiver.Name, FontSize = 25, FontWeight = FontWeight.SemiBold };
+        status = new TextBlock { Text = "Starting receiver…", FontSize = 14, Foreground = MutedBrush };
+        portLabel = new TextBlock { Text = "Preparing local network receiver", FontSize = 12, Foreground = MutedBrush };
+
+        var readyDot = new Border
+        {
+            Width = 9,
+            Height = 9,
+            CornerRadius = new CornerRadius(5),
+            Background = AccentBrush,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 9, 0)
+        };
+        var readyLabel = new TextBlock { Text = "READY TO RECEIVE", FontSize = 11, FontWeight = FontWeight.Bold, Foreground = AccentBrush };
+        var readyRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 0, VerticalAlignment = VerticalAlignment.Center };
+        readyRow.Children.Add(readyDot);
+        readyRow.Children.Add(readyLabel);
+
+        var hero = new StackPanel { Spacing = 10 };
+        hero.Children.Add(readyRow);
+        hero.Children.Add(deviceName);
+        hero.Children.Add(status);
+        hero.Children.Add(portLabel);
+
+        var castCard = new Border
+        {
+            Background = PanelBrush,
+            BorderBrush = BorderBrush,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(20),
+            Padding = new Thickness(24),
+            Child = hero
         };
 
-        var hint = new TextBlock
+        var stepsTitle = new TextBlock { Text = "Cast to Beam", FontSize = 17, FontWeight = FontWeight.SemiBold };
+        var stepsBody = new TextBlock
         {
-            Text = "Keep Beam and your sender on the same Wi-Fi. Open VLC or a DLNA sender app and choose this receiver. Playback uses mpv.",
+            Text = "Open a DLNA-compatible app on your phone or PC, tap its cast / renderer icon, then select the Beam device shown above. Keep both devices on the same Wi-Fi.",
             TextWrapping = TextWrapping.Wrap,
-            Foreground = Brush.Parse("#A9B7D0"),
-            LineHeight = 22
+            LineHeight = 22,
+            Foreground = MutedBrush
         };
-        var panel = new StackPanel { Margin = new Thickness(28), Spacing = 16 };
-        panel.Children.Add(new TextBlock { Text = "BEAM  /  LINUX", FontSize = 12, FontWeight = FontWeight.Bold, Foreground = Brush.Parse("#67D8FF") });
-        panel.Children.Add(deviceName);
-        panel.Children.Add(status);
-        panel.Children.Add(toggle);
-        panel.Children.Add(new TextBlock { Text = "Receiver name", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0) });
-        panel.Children.Add(nameBox);
-        panel.Children.Add(rename);
-        panel.Children.Add(new Border { Height = 1, Background = Brush.Parse("#26334E"), Margin = new Thickness(0, 4) });
-        panel.Children.Add(hint);
-        Content = new ScrollViewer { Content = panel };
+        var stepsCard = new Border
+        {
+            Background = PanelBrush,
+            BorderBrush = BorderBrush,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(18),
+            Padding = new Thickness(22),
+            Child = new StackPanel { Spacing = 10, Children = { stepsTitle, stepsBody } }
+        };
+
+        var controlsTitle = new TextBlock { Text = "Playback controls", FontSize = 17, FontWeight = FontWeight.SemiBold };
+        var controlsNote = new TextBlock { Text = "These controls apply when media is playing.", FontSize = 12, Foreground = MutedBrush };
+        aspectPicker = new ComboBox
+        {
+            ItemsSource = new[] { "Auto", "4:3", "16:9", "21:9" },
+            SelectedIndex = 0,
+            MinWidth = 125,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        aspectPicker.SelectionChanged += (_, _) =>
+        {
+            if (aspectPicker.SelectedItem is string ratio) player.SetAspectRatio(ratio);
+        };
+
+        volumeSlider = new Slider { Minimum = 0, Maximum = 100, Value = 80, MinWidth = 140, VerticalAlignment = VerticalAlignment.Center };
+        volumeSlider.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == RangeBase.ValueProperty) player.SetVolume((int)volumeSlider.Value);
+        };
+        muteButton = new Button { Content = "♫", Width = 44, Height = 38, Background = BackgroundBrush, Foreground = AccentBrush };
+        muteButton.Click += (_, _) =>
+        {
+            mute = !mute;
+            player.SetMute(mute);
+            muteButton.Content = mute ? "×" : "♫";
+        };
+
+        brightnessSlider = new Slider { Minimum = -100, Maximum = 100, Value = 0, MinWidth = 140, VerticalAlignment = VerticalAlignment.Center };
+        brightnessSlider.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == RangeBase.ValueProperty) player.SetBrightness((int)brightnessSlider.Value);
+        };
+
+        var aspectRow = MakeControlRow("▣", "Aspect ratio", aspectPicker);
+        var volumeRow = MakeControlRow("♫", "Sound", volumeSlider, muteButton);
+        var brightnessRow = MakeControlRow("☼", "Brightness", brightnessSlider);
+
+        var controlsPanel = new StackPanel { Spacing = 14 };
+        controlsPanel.Children.Add(controlsTitle);
+        controlsPanel.Children.Add(controlsNote);
+        controlsPanel.Children.Add(aspectRow);
+        controlsPanel.Children.Add(volumeRow);
+        controlsPanel.Children.Add(brightnessRow);
+
+        var controlsCard = new Border
+        {
+            Background = PanelBrush,
+            BorderBrush = BorderBrush,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(18),
+            Padding = new Thickness(22),
+            Child = controlsPanel
+        };
+
+        var footer = new TextBlock
+        {
+            Text = "Local network only  ·  DLNA / UPnP  ·  Powered by mpv",
+            FontSize = 11,
+            Foreground = MutedBrush,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 4, 0, 0)
+        };
+
+        var content = new StackPanel { Spacing = 16 };
+        content.Children.Add(topBar);
+        content.Children.Add(castCard);
+        content.Children.Add(stepsCard);
+        content.Children.Add(controlsCard);
+        content.Children.Add(footer);
+        Content = new ScrollViewer { Content = new Border { Padding = new Thickness(24), Child = content } };
+
+        Opened += (_, _) => StartReceiverAutomatically();
         Closed += (_, _) => receiver.Dispose();
     }
 
-    private void ToggleReceiver()
+    private static StackPanel MakeControlRow(string glyph, string label, Control control, Control? trailing = null)
+    {
+        var title = new TextBlock
+        {
+            Text = glyph + "  " + label,
+            Width = 125,
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = Brush.Parse("#C8D5E8")
+        };
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("125,*,Auto"), ColumnSpacing = 12 };
+        row.Children.Add(title);
+        Grid.SetColumn(control, 1);
+        row.Children.Add(control);
+        if (trailing != null)
+        {
+            Grid.SetColumn(trailing, 2);
+            row.Children.Add(trailing);
+        }
+        return new StackPanel { Children = { row } };
+    }
+
+    private void StartReceiverAutomatically()
     {
         try
         {
-            if (receiver.IsRunning)
-            {
-                receiver.Stop();
-                status.Text = "Receiver is off";
-                toggle.Content = "Start receiver";
-            }
-            else
-            {
-                receiver.Start();
-                status.Text = $"Ready to cast · HTTP port {receiver.Port}";
-                toggle.Content = "Stop receiver";
-            }
+            receiver.Start();
+            status.Text = "Your device is visible to compatible cast apps";
+            portLabel.Text = $"Listening on local network · HTTP {receiver.Port}";
         }
         catch (Exception ex)
         {
-            status.Text = "Could not start: " + ex.Message;
+            status.Text = "Could not start receiver";
+            portLabel.Text = ex.Message;
         }
+    }
+
+    private async Task ShowRenameDialog()
+    {
+        var input = new TextBox { Text = receiver.Name, MinWidth = 260 };
+        var save = new Button { Content = "Save name", HorizontalAlignment = HorizontalAlignment.Right, Padding = new Thickness(14, 8) };
+        var dialog = new Window
+        {
+            Title = "Rename Beam device",
+            Width = 360,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            Background = BackgroundBrush,
+            Foreground = Brush.Parse("#EDF5FF"),
+            Content = new Border
+            {
+                Padding = new Thickness(22),
+                Child = new StackPanel
+                {
+                    Spacing = 14,
+                    Children =
+                    {
+                        new TextBlock { Text = "Device name", FontWeight = FontWeight.SemiBold },
+                        input,
+                        save
+                    }
+                }
+            }
+        };
+
+        save.Click += (_, _) =>
+        {
+            var newName = input.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(newName)) return;
+            receiver.Rename(newName);
+            deviceName.Text = receiver.Name;
+            dialog.Close();
+        };
+        await dialog.ShowDialog(this);
     }
 }
