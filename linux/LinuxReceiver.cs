@@ -10,7 +10,7 @@ internal sealed class LinuxReceiver : IDisposable
     public UpnpDevice? Device { get; private set; }
     public int Port { get; private set; }
     public bool IsRunning { get; private set; }
-    public string Name { get; set; } = Environment.MachineName + " Beam";
+    public string Name { get; private set; } = Environment.MachineName + " Beam";
     public string Uuid { get; } = Guid.NewGuid().ToString();
 
     public LinuxReceiver(MpvPlayer player) => this.player = player;
@@ -32,6 +32,14 @@ internal sealed class LinuxReceiver : IDisposable
             throw;
         }
         IsRunning = true;
+    }
+
+    public void Rename(string name)
+    {
+        var clean = name.Trim();
+        if (clean.Length == 0) throw new ArgumentException("Device name cannot be empty.", nameof(name));
+        Name = clean;
+        Device?.SetName(clean);
     }
 
     public void Stop()
