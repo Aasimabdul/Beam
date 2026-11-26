@@ -52,3 +52,12 @@ Same idea on a PC: a single `windows/` project, built to one **Beam.exe** (about
 - The first run asks Windows Firewall for permission: allow **Private networks**.
 - Not code-signed, so SmartScreen may warn once: *More info → Run anyway*.
 - Phones need a DLNA sender app (VLC, BubbleUPnP, LocalCast, Web Video Caster…). YouTube/Chrome use Google Cast, which Beam does not speak.
+
+## Beam for Linux (initial port)
+
+The Linux desktop implementation is in `linux/`. It reuses the DLNA/UPnP core, uses an Avalonia desktop UI, and hands media playback to mpv.
+
+- Requires a Linux x86_64 desktop and `mpv` installed on the system.
+- Build locally with `dotnet restore linux/Beam.Linux.csproj` then `dotnet run --project linux/Beam.Linux.csproj`.
+- GitHub Actions builds a portable archive plus Debian and RPM packages.
+- This is an initial port: seek position/duration reporting and desktop integration are still incomplete. Check the Linux workflow result before using its packages.
