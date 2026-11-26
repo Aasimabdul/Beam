@@ -36,6 +36,13 @@ object Prefs {
     fun setMode(c: Context, m: Int) {
         p(c).edit().putInt("mode", m).apply()
     }
+
+    /** Screen orientation: 0 landscape (default), 1 portrait. */
+    fun orientation(c: Context): Int = p(c).getInt("orientation", 0).coerceIn(0, 1)
+
+    fun setOrientation(c: Context, mode: Int) {
+        p(c).edit().putInt("orientation", mode.coerceIn(0, 1)).apply()
+    }
 }
 
 /** How video and pictures fit the screen. */
