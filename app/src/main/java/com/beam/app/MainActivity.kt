@@ -225,10 +225,9 @@ class MainActivity : Activity() {
 
     private fun refresh() {
         val on = ReceiverService.running
-        headline.text = if (on) "Ready to cast" else "Receiver is off"
-        headline.setTextColor(if (on) NEON else MUTED)
-        detail.text = if (on) "Visible as \"${Prefs.name(this)}\"\n${ReceiverService.address ?: ""}" else "Turn it on, then cast from your other device."
-        toggle.text = if (on) "Turn off" else "Turn on"
+        headline.text = if (on) "Ready to cast" else "Starting receiver…" 
+        headline.setTextColor(NEON)
+        detail.text = if (on) "Visible as \"${Prefs.name(this)}\"\n${ReceiverService.address ?: ""}" else "Beam starts automatically when you open the app."
         overlay.text = if (Settings.canDrawOverlays(this)) "Allowed: the player opens by itself when a cast starts."
         else "Not allowed: you will get a notification to tap when a cast starts."
         val m = Prefs.mode(this)
