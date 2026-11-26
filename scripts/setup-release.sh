@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # One-time Beam release setup. Run on YOUR computer, inside a clone of the repo, after `gh auth login`.
 # Creates the signing key, stores the 4 GitHub secrets, then tags a release.
-# Usage: ./scripts/setup-release.sh [tag]      (default tag: v0.3.0)
+# Usage: ./scripts/setup-release.sh [tag]      (default tag: v0.1.0)
 set -euo pipefail
 REPO="Aasimabdul/Beam"
-TAG="${1:-v0.3.0}"
+TAG="${1:-v0.1.0}"
 KS="beam-release.jks"
 ALIAS="beam"
 
