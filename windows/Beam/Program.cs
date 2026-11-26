@@ -12,13 +12,16 @@ namespace Beam
         {
             bool created;
             using (var mutex = new Mutex(true, "Local\\Beam.Receiver.Single", out created))
+            using (var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\Beam.Receiver.Show"))
             {
                 if (!created)
                 {
-                    MessageBox.Show("Beam is already running. Look for its icon near the clock.", "Beam");
+                    // Beam is already running: just bring its window forward.
+                    showEvent.Set();
                     return 0;
                 }
 
+                bool trayOnly = Array.IndexOf(args, "--tray") >= 0;
                 var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
                 app.DispatcherUnhandledException += delegate(object s, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
                 {
@@ -33,7 +36,19 @@ namespace Beam
                 Settings cfg = Settings.Load();
                 var player = new PlayerWindow(cfg);
                 var rx = new Receiver(cfg, player);
-                var tray = new Tray(rx, player, app);
+                var home = new HomeWindow(rx, player);
+                var tray = new Tray(rx, player, home, app);
+
+                var waiter = new Thread(delegate()
+                {
+                    try
+                    {
+                        while (showEvent.WaitOne())
+                            app.Dispatcher.BeginInvoke(new Action(delegate { home.Open(false); }));
+                    }
+                    catch (Exception) { /* shutting down */ }
+                }) { IsBackground = true, Name = "beam-show" };
+                waiter.Start();
 
                 Task.Run(delegate
                 {
@@ -47,6 +62,8 @@ namespace Beam
                         tray.Error(ex.Message);
                     }
                 });
+
+                if (!trayOnly) home.Open(false);
 
                 app.Run();
                 rx.Stop();

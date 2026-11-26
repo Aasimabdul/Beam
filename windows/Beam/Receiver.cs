@@ -1,6 +1,7 @@
 using System;
 using System.Net.NetworkInformation;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Win32;
 
 namespace Beam
@@ -12,6 +13,9 @@ namespace Beam
         public readonly PlayerWindow Player;
         public UpnpDevice Device { get; private set; }
         public int Port { get; private set; }
+        public volatile bool Ready;
+        public volatile string Error;
+        public event Action NameChanged;
 
         private MiniHttp http;
         private SsdpServer ssdp;
@@ -37,6 +41,7 @@ namespace Beam
             SystemEvents.PowerModeChanged += OnPower;
             ssdp = new SsdpServer(Cfg.Uuid, Port);
             ssdp.Start();
+            Ready = true;
         }
 
         public void Rename(string name)
@@ -44,7 +49,9 @@ namespace Beam
             Cfg.Name = name;
             Cfg.Save();
             if (Device != null) Device.SetName(name);
-            RestartSsdp();
+            Task.Run(new Action(RestartSsdp));
+            Action h = NameChanged;
+            if (h != null) h();
         }
 
         private void OnNetwork(object sender, EventArgs e) { Debounce(); }

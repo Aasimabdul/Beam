@@ -2,18 +2,16 @@ using System;
 using System.Drawing;
 using System.Reflection;
 using System.Windows;
-using System.Windows.Controls;
-using Microsoft.Win32;
 using WF = System.Windows.Forms;
 
 namespace Beam
 {
-    /// <summary>The notification-area icon and its menu: picture mode, rename, start with Windows, quit.</summary>
+    /// <summary>The notification-area icon and its menu: open Beam, picture mode, settings, start with Windows, quit.</summary>
     public sealed class Tray : IDisposable
     {
-        private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private readonly Receiver rx;
         private readonly PlayerWindow player;
+        private readonly HomeWindow home;
         private readonly Application app;
         private readonly WF.NotifyIcon icon;
         private readonly WF.ToolStripMenuItem titleItem;
@@ -21,16 +19,22 @@ namespace Beam
         private readonly WF.ToolStripMenuItem fullItem;
         private readonly WF.ToolStripMenuItem startupItem;
 
-        public Tray(Receiver rx, PlayerWindow player, Application app)
+        public Tray(Receiver rx, PlayerWindow player, HomeWindow home, Application app)
         {
             this.rx = rx;
             this.player = player;
+            this.home = home;
             this.app = app;
 
             var menu = new WF.ContextMenuStrip();
             titleItem = new WF.ToolStripMenuItem("Beam") { Enabled = false };
             menu.Items.Add(titleItem);
             menu.Items.Add(new WF.ToolStripSeparator());
+
+            var open = new WF.ToolStripMenuItem("Open Beam");
+            open.Font = new Font(open.Font, FontStyle.Bold);
+            open.Click += delegate { home.Open(false); };
+            menu.Items.Add(open);
 
             var show = new WF.ToolStripMenuItem("Show player");
             show.Click += delegate { player.ShowIfLoaded(); };
@@ -41,7 +45,7 @@ namespace Beam
             {
                 AspectMode m = Aspect.All[i];
                 var item = new WF.ToolStripMenuItem(Aspect.Label(m) + "  –  " + Aspect.Hint(m));
-                item.Click += delegate { player.Dispatcher.Invoke(new Action(delegate { player.SetMode(m, false); })); };
+                item.Click += delegate { player.SetMode(m, false); };
                 modeItems[i] = item;
                 picture.DropDownItems.Add(item);
             }
@@ -55,12 +59,12 @@ namespace Beam
             fullItem.Click += delegate { rx.Cfg.Fullscreen = !rx.Cfg.Fullscreen; rx.Cfg.Save(); };
             menu.Items.Add(fullItem);
 
-            var rename = new WF.ToolStripMenuItem("Rename receiver…");
-            rename.Click += delegate { Rename(); };
-            menu.Items.Add(rename);
+            var settings = new WF.ToolStripMenuItem("Settings…");
+            settings.Click += delegate { home.Open(true); };
+            menu.Items.Add(settings);
 
             startupItem = new WF.ToolStripMenuItem("Start with Windows");
-            startupItem.Click += delegate { SetStartup(!StartupOn()); };
+            startupItem.Click += delegate { Startup.Set(!Startup.IsOn()); };
             menu.Items.Add(startupItem);
 
             menu.Items.Add(new WF.ToolStripSeparator());
@@ -73,12 +77,13 @@ namespace Beam
                 titleItem.Text = "Beam – " + rx.Cfg.Name;
                 show.Enabled = player.HasMedia;
                 fullItem.Checked = rx.Cfg.Fullscreen;
-                startupItem.Checked = StartupOn();
+                startupItem.Checked = Startup.IsOn();
             };
 
             icon = new WF.NotifyIcon { Visible = true, ContextMenuStrip = menu, Icon = LoadIcon() };
             SetTip();
-            icon.DoubleClick += delegate { player.ShowIfLoaded(); };
+            icon.DoubleClick += delegate { if (player.HasMedia) player.ShowIfLoaded(); else home.Open(false); };
+            rx.NameChanged += delegate { app.Dispatcher.BeginInvoke(new Action(SetTip)); };
         }
 
         private static Icon LoadIcon()
@@ -115,77 +120,15 @@ namespace Beam
 
         public void Error(string text)
         {
+            rx.Error = text;
             Settings.Log("start failed: " + text);
             Balloon("Beam could not start", text);
-        }
-
-        private void Rename()
-        {
-            string n = Ask("Rename receiver", rx.Cfg.Name);
-            if (n == null) return;
-            n = n.Trim();
-            if (n.Length == 0) return;
-            if (n.Length > 40) n = n.Substring(0, 40);
-            rx.Rename(n);
-            SetTip();
-        }
-
-        private static string Ask(string title, string current)
-        {
-            string result = null;
-            var w = new Window
-            {
-                Title = title,
-                Width = 380,
-                SizeToContent = SizeToContent.Height,
-                WindowStartupLocation = WindowStartupLocation.CenterScreen,
-                ResizeMode = ResizeMode.NoResize,
-                Topmost = true,
-                ShowInTaskbar = false,
-            };
-            var box = new TextBox { Text = current, MaxLength = 40, Margin = new Thickness(14, 14, 14, 8), FontSize = 15, Padding = new Thickness(4) };
-            var ok = new Button { Content = "OK", IsDefault = true, Width = 80, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(4) };
-            var cancel = new Button { Content = "Cancel", IsCancel = true, Width = 80, Padding = new Thickness(4) };
-            ok.Click += delegate { result = box.Text; w.DialogResult = true; };
-            var row = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(14, 0, 14, 14) };
-            row.Children.Add(ok);
-            row.Children.Add(cancel);
-            var col = new StackPanel();
-            col.Children.Add(box);
-            col.Children.Add(row);
-            w.Content = col;
-            w.Loaded += delegate { box.Focus(); box.SelectAll(); };
-            w.ShowDialog();
-            return result;
-        }
-
-        private static bool StartupOn()
-        {
-            try
-            {
-                using (RegistryKey k = Registry.CurrentUser.OpenSubKey(RunKey))
-                    return k != null && k.GetValue("Beam") != null;
-            }
-            catch (Exception) { return false; }
-        }
-
-        private static void SetStartup(bool on)
-        {
-            try
-            {
-                using (RegistryKey k = Registry.CurrentUser.OpenSubKey(RunKey, true))
-                {
-                    if (k == null) return;
-                    if (on) k.SetValue("Beam", "\"" + Assembly.GetExecutingAssembly().Location + "\"");
-                    else k.DeleteValue("Beam", false);
-                }
-            }
-            catch (Exception ex) { Settings.Log("startup toggle failed: " + ex.Message); }
         }
 
         private void Quit()
         {
             player.Quitting = true;
+            home.Quitting = true;
             app.Shutdown();
         }
 
