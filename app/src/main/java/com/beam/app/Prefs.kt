@@ -29,4 +29,17 @@ object Prefs {
     fun setPort(c: Context, port: Int) {
         p(c).edit().putInt("port", port).apply()
     }
+
+    /** Picture mode index into [Aspect.labels]: 0 Fit, 1 Fill, 2 16:9, 3 Crop. */
+    fun mode(c: Context): Int = p(c).getInt("mode", 0).coerceIn(0, Aspect.labels.size - 1)
+
+    fun setMode(c: Context, m: Int) {
+        p(c).edit().putInt("mode", m).apply()
+    }
+}
+
+/** How video and pictures fit the screen. */
+object Aspect {
+    val labels = listOf("Fit", "Fill", "16:9", "Crop")
+    val hints = listOf("Whole picture, bars if needed", "Stretch to the whole screen", "Force a 16:9 picture", "Zoom to fill, trim the edges")
 }

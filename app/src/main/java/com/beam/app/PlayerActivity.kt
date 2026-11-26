@@ -34,6 +34,8 @@ class PlayerActivity : Activity(), Playback.Ui, SurfaceHolder.Callback {
     private lateinit var controls: LinearLayout
     private lateinit var playBtn: TextView
     private lateinit var timeView: TextView
+    private lateinit var modeBtn: TextView
+    private var mode = 0
     private lateinit var seek: SeekBar
     private val h = Handler(Looper.getMainLooper())
     private var seeking = false
@@ -82,6 +84,8 @@ class PlayerActivity : Activity(), Playback.Ui, SurfaceHolder.Callback {
 
         playBtn = pill("Pause") { Playback.userToggle(); refreshTime(); showControls() }
         val stopBtn = pill("Stop") { Playback.userStop() }
+        mode = Prefs.mode(this)
+        modeBtn = pill(Aspect.labels[mode]) { cycleMode() }
         timeView = tv("0:00 / 0:00", 13f, FG).apply { setPadding(dp(10), 0, dp(10), 0) }
         seek = SeekBar(this).apply {
             max = 1000
@@ -106,6 +110,7 @@ class PlayerActivity : Activity(), Playback.Ui, SurfaceHolder.Callback {
             addView(playBtn, LinearLayout.LayoutParams(dp(78), wrap))
             addView(timeView, LinearLayout.LayoutParams(wrap, wrap))
             addView(seek, LinearLayout.LayoutParams(0, wrap, 1f))
+            addView(modeBtn, LinearLayout.LayoutParams(dp(64), wrap).apply { marginStart = dp(10) })
             addView(stopBtn, LinearLayout.LayoutParams(dp(70), wrap).apply { marginStart = dp(10) })
         }
         root.addView(controls, FrameLayout.LayoutParams(match, wrap, Gravity.BOTTOM))
@@ -186,15 +191,56 @@ class PlayerActivity : Activity(), Playback.Ui, SurfaceHolder.Callback {
 
     // ---- layout and controls
 
+    private fun cycleMode() {
+        mode = (mode + 1) % Aspect.labels.size
+        Prefs.setMode(this, mode)
+        modeBtn.text = Aspect.labels[mode]
+        fitVideo()
+        android.widget.Toast.makeText(this, Aspect.labels[mode] + ": " + Aspect.hints[mode], android.widget.Toast.LENGTH_SHORT).show()
+        showControls()
+    }
+
+    /** Sizes the video surface and the picture for the chosen mode: Fit, Fill, 16:9 or Crop. */
     private fun fitVideo() {
-        val vw = Playback.videoW
-        val vh = Playback.videoH
         val rw = root.width
         val rh = root.height
-        if (vw <= 0 || vh <= 0 || rw <= 0 || rh <= 0) return
-        val k = min(rw / vw.toFloat(), rh / vh.toFloat())
-        val w = max(1, (vw * k).roundToInt())
-        val hgt = max(1, (vh * k).roundToInt())
+        if (rw <= 0 || rh <= 0) return
+        // the biggest 16:9 box that fits the screen
+        var bw = rw
+        var bh = (rw * 9f / 16f).roundToInt()
+        if (bh > rh) {
+            bh = rh
+            bw = (rh * 16f / 9f).roundToInt()
+        }
+        // picture
+        val plp = picture.layoutParams as FrameLayout.LayoutParams
+        val pw = if (mode == 2) bw else ViewGroup.LayoutParams.MATCH_PARENT
+        val ph = if (mode == 2) bh else ViewGroup.LayoutParams.MATCH_PARENT
+        if (plp.width != pw || plp.height != ph || plp.gravity != Gravity.CENTER) {
+            plp.width = pw
+            plp.height = ph
+            plp.gravity = Gravity.CENTER
+            picture.layoutParams = plp
+        }
+        picture.scaleType = when (mode) {
+            0 -> ImageView.ScaleType.FIT_CENTER
+            3 -> ImageView.ScaleType.CENTER_CROP
+            else -> ImageView.ScaleType.FIT_XY
+        }
+        // video
+        val vw = Playback.videoW
+        val vh = Playback.videoH
+        if (vw <= 0 || vh <= 0) return
+        val fit = min(rw / vw.toFloat(), rh / vh.toFloat())
+        val fill = max(rw / vw.toFloat(), rh / vh.toFloat())
+        val w: Int
+        val hgt: Int
+        when (mode) {
+            1 -> { w = rw; hgt = rh }
+            2 -> { w = bw; hgt = bh }
+            3 -> { w = max(1, (vw * fill).roundToInt()); hgt = max(1, (vh * fill).roundToInt()) }
+            else -> { w = max(1, (vw * fit).roundToInt()); hgt = max(1, (vh * fit).roundToInt()) }
+        }
         val lp = surface.layoutParams as FrameLayout.LayoutParams
         if (lp.width != w || lp.height != hgt || lp.gravity != Gravity.CENTER) {
             lp.width = w
@@ -256,6 +302,10 @@ class PlayerActivity : Activity(), Playback.Ui, SurfaceHolder.Callback {
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_MEDIA_REWIND -> {
                 Playback.userSeekTo(max(0L, Playback.positionMs() - 10_000))
                 showControls()
+                return true
+            }
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_V, KeyEvent.KEYCODE_MENU -> {
+                cycleMode()
                 return true
             }
             KeyEvent.KEYCODE_MEDIA_STOP, KeyEvent.KEYCODE_BACK -> {
