@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -30,11 +31,11 @@ class MainActivity : Activity() {
     private lateinit var settings: ScrollView
     private lateinit var headline: TextView
     private lateinit var detail: TextView
-    private lateinit var toggle: TextView
     private lateinit var overlay: TextView
     private lateinit var nameField: EditText
     private lateinit var modeButtons: List<TextView>
     private lateinit var modeHint: TextView
+    private lateinit var orientationButtons: List<TextView>
     private val h = Handler(Looper.getMainLooper())
     private val poll = object : Runnable {
         override fun run() {
@@ -45,6 +46,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyOrientation()
         home = ScrollView(this).apply {
             setBackgroundColor(BG)
             clipToPadding = false
@@ -65,6 +67,7 @@ class MainActivity : Activity() {
             addView(home, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             addView(settings, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         })
+        startReceiverIfNeeded()
     }
 
     private fun buildHome(): View {
@@ -79,12 +82,10 @@ class MainActivity : Activity() {
         top.addView(pill("Settings") { showSettings(true) }, LinearLayout.LayoutParams(dp(104), wrap))
         col.addView(top, LinearLayout.LayoutParams(match, wrap))
 
-        headline = tv("Receiver is off", 30f, MUTED, true).apply { setPadding(0, dp(40), 0, 0) }
+        headline = tv("Beam is ready", 30f, NEON, true).apply { setPadding(0, dp(40), 0, 0) }
         col.addView(headline)
-        detail = tv("", 14f, MUTED).apply { setPadding(0, dp(6), 0, dp(18)) }
+        detail = tv("Starting receiver…", 14f, MUTED).apply { setPadding(0, dp(6), 0, dp(18)) }
         col.addView(detail)
-        toggle = pill("Turn on", filled = true) { onToggle() }
-        col.addView(toggle, LinearLayout.LayoutParams(match, wrap))
 
         col.addView(label("How to cast"))
         col.addView(tv(
@@ -122,6 +123,18 @@ class MainActivity : Activity() {
         }
         col.addView(nameField, LinearLayout.LayoutParams(match, wrap))
         col.addView(pill("Save name") { saveName() }, LinearLayout.LayoutParams(match, wrap).apply { topMargin = dp(8) })
+
+        col.addView(label("Screen orientation"))
+        orientationButtons = listOf("Landscape", "Portrait").mapIndexed { i, name ->
+            pill(name) { setOrientationMode(i) }.also {
+                // Added to the row below after both choices are created.
+            }
+        }
+        val orientationRow = LinearLayout(this)
+        orientationButtons.forEachIndexed { i, button ->
+            orientationRow.addView(button, LinearLayout.LayoutParams(0, wrap, 1f).apply { if (i > 0) marginStart = dp(8) })
+        }
+        col.addView(orientationRow, LinearLayout.LayoutParams(match, wrap))
 
         col.addView(label("Picture"))
         val row = LinearLayout(this)
@@ -168,16 +181,24 @@ class MainActivity : Activity() {
         super.onPause()
     }
 
-    private fun onToggle() {
-        if (ReceiverService.running) {
-            ReceiverService.stop(this)
-        } else {
-            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
-            }
-            ReceiverService.start(this)
+    private fun startReceiverIfNeeded() {
+        if (ReceiverService.running) return
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
+        ReceiverService.start(this)
         h.postDelayed({ refresh() }, 400)
+    }
+
+    private fun applyOrientation() {
+        requestedOrientation = if (Prefs.orientation(this) == 0) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    }
+
+    private fun setOrientationMode(mode: Int) {
+        Prefs.setOrientation(this, mode)
+        applyOrientation()
+        refresh()
     }
 
     private fun saveName() {
@@ -220,5 +241,14 @@ class MainActivity : Activity() {
             }
         }
         modeHint.text = Aspect.hints[m]
+        val orientation = Prefs.orientation(this)
+        orientationButtons.forEachIndexed { i, b ->
+            b.setTextColor(if (i == orientation) BG else ACCENT)
+            b.background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = dp(10).toFloat()
+                setColor(if (i == orientation) ACCENT else CARD)
+                if (i != orientation) setStroke(dp(1), LINE)
+            }
+        }
     }
 }
