@@ -213,8 +213,11 @@ class MainActivity : Activity() {
         val m = Prefs.mode(this)
         modeButtons.forEachIndexed { i, b ->
             b.setTextColor(if (i == m) BG else ACCENT)
-            b.background = null
-            b.setBackgroundColor(if (i == m) ACCENT else CARD)
+            b.background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = dp(10).toFloat()
+                setColor(if (i == m) ACCENT else CARD)
+                if (i != m) setStroke(dp(1), LINE)
+            }
         }
         modeHint.text = Aspect.hints[m]
     }
