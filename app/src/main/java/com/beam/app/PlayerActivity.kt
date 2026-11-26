@@ -1,6 +1,7 @@
 package com.beam.app
 
 import android.app.Activity
+import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -50,6 +51,8 @@ class PlayerActivity : Activity(), Playback.Ui, SurfaceHolder.Callback {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestedOrientation = if (Prefs.orientation(this) == 0) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         if (!Playback.uiWanted) {
             finish()
             return
