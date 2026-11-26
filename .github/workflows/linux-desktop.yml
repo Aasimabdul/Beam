@@ -83,7 +83,7 @@ jobs:
           Exec=beam
           Icon=beam
           Terminal=false
-          Categories=AudioVideo;Player;Network;
+          Categories=AudioVideo;Player;
           EOF
           cp Beam.AppDir/beam.desktop Beam.AppDir/usr/share/applications/beam.desktop
           cat > Beam.AppDir/usr/share/icons/hicolor/scalable/apps/beam.svg <<'EOF'
