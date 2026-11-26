@@ -1,5 +1,4 @@
-using System.Net;
-using System.Net.NetworkInformation;
+using System.Net.Sockets;
 
 namespace Beam.Linux;
 
@@ -26,7 +25,12 @@ internal sealed class LinuxReceiver : IDisposable
         catch (SocketException) { Port = http.Start(0); }
         ssdp = new SsdpServer(Uuid, Port);
         try { ssdp.Start(); }
-        catch { http.Stop(); Device.Shutdown(); throw; }
+        catch
+        {
+            http.Stop();
+            Device.Shutdown();
+            throw;
+        }
         IsRunning = true;
     }
 
