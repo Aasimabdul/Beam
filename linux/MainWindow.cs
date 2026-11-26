@@ -126,10 +126,7 @@ internal sealed class MainWindow : Window
         };
 
         volumeSlider = new Slider { Minimum = 0, Maximum = 100, Value = 80, MinWidth = 140, VerticalAlignment = VerticalAlignment.Center };
-        volumeSlider.PropertyChanged += (_, e) =>
-        {
-            if (e.Property == RangeBase.ValueProperty) player.SetVolume((int)volumeSlider.Value);
-        };
+        volumeSlider.ValueChanged += (_, e) => player.SetVolume((int)e.NewValue);
         muteButton = new Button { Content = "♫", Width = 44, Height = 38, Background = BackgroundBrush, Foreground = AccentBrush };
         muteButton.Click += (_, _) =>
         {
@@ -139,10 +136,7 @@ internal sealed class MainWindow : Window
         };
 
         brightnessSlider = new Slider { Minimum = -100, Maximum = 100, Value = 0, MinWidth = 140, VerticalAlignment = VerticalAlignment.Center };
-        brightnessSlider.PropertyChanged += (_, e) =>
-        {
-            if (e.Property == RangeBase.ValueProperty) player.SetBrightness((int)brightnessSlider.Value);
-        };
+        brightnessSlider.ValueChanged += (_, e) => player.SetBrightness((int)e.NewValue);
 
         var aspectRow = MakeControlRow("▣", "Aspect ratio", aspectPicker);
         var volumeRow = MakeControlRow("♫", "Sound", volumeSlider, muteButton);
