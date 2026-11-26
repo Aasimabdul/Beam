@@ -32,7 +32,7 @@ namespace Beam
             menu.Items.Add(new WF.ToolStripSeparator());
 
             var open = new WF.ToolStripMenuItem("Open Beam");
-            open.Font = new Font(open.Font, FontStyle.Bold);
+            open.Font = new System.Drawing.Font(open.Font, System.Drawing.FontStyle.Bold);
             open.Click += delegate { home.Open(false); };
             menu.Items.Add(open);
 
