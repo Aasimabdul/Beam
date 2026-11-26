@@ -39,3 +39,16 @@ Min Android 10 (API 29).
 
 Same as Fliq: create a keystore, add the secrets `KEYSTORE_B64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`, then push a tag
 such as `v0.1.0`.
+
+## Beam for Windows
+
+Same idea on a PC: a single `windows/` project, built to one **Beam.exe** (about 120 KB). It targets .NET Framework 4.8, which is already part of Windows 10/11, so there is nothing to install.
+
+- Download the latest build from the **latest-windows** pre-release, run `Beam.exe`.
+- Home screen says **Ready to cast** with the steps; **Settings** has the receiver name, picture mode, full-screen and start-with-Windows. Closing the window keeps Beam in the tray.
+- Picture modes while playing (press **V**, or **1 2 3 4**): **Fit**, **Fill**, **16:9**, **Crop**.
+- Keys: Space pause, ← → jump 10 s, ↑ ↓ volume, M mute, F full screen, Esc stop.
+- Playback uses Windows' built-in media stack, so H.264 MP4 is the safe format. MKV/HEVC/etc. depend on codecs installed on the PC.
+- The first run asks Windows Firewall for permission: allow **Private networks**.
+- Not code-signed, so SmartScreen may warn once: *More info → Run anyway*.
+- Phones need a DLNA sender app (VLC, BubbleUPnP, LocalCast, Web Video Caster…). YouTube/Chrome use Google Cast, which Beam does not speak.
