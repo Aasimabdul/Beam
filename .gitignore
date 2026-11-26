@@ -12,3 +12,7 @@ captures/
 *.jks
 *.keystore
 .DS_Store
+
+bin/
+obj/
+*.user

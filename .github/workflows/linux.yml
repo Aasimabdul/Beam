@@ -1,0 +1,63 @@
+name: Build Linux
+
+on:
+  push:
+    branches: [main]
+    paths: ['linux/**', 'core/**', 'tests/**', '.github/workflows/linux.yml']
+  pull_request:
+    paths: ['linux/**', 'core/**', 'tests/**', '.github/workflows/linux.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Protocol tests (DLNA core)
+        env:
+          BEAM_SKIP_LIVE: '1'
+        run: dotnet run --project tests -c Release
+
+      - name: Publish single-file binary (self-contained, trimmed)
+        run: |
+          dotnet publish linux/Beam.Linux.csproj -c Release -r linux-x64 --self-contained \
+            -p:PublishSingleFile=true -p:PublishTrimmed=true -p:EnableCompressionInSingleFile=true \
+            -p:DebuggerSupport=false -p:EventSourceSupport=false -p:UseSystemResourceKeys=true -o out
+          ls -l out
+
+      - name: Smoke test the real binary with mpv
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mpv ffmpeg
+          bash tests/smoke-linux.sh "$PWD/out/beam"
+
+      - name: Package
+        run: |
+          mkdir -p pkg/beam
+          cp out/beam linux/install.sh linux/beam.png pkg/beam/
+          tar -C pkg -czf Beam-linux-x64.tar.gz beam
+          ls -l Beam-linux-x64.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Beam-linux-x64
+          path: Beam-linux-x64.tar.gz
+
+      - name: Publish latest Linux build (pre-release)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest-linux --cleanup-tag --yes || true
+          gh release create latest-linux Beam-linux-x64.tar.gz --prerelease \
+            --title "Beam for Linux (latest build)" \
+            --notes "Auto-built from main. Extract, run ./install.sh, then start Beam from your apps menu. Needs mpv for playback (sudo apt install mpv)." \
+            --target "$GITHUB_SHA"

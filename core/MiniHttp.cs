@@ -57,12 +57,12 @@ namespace Beam
 
         public MiniHttp(IHttpHandler handler) { this.handler = handler; }
 
-        /// <summary>Starts listening on port (0 = any free port) and returns the port in use.</summary>
-        public int Start(int port)
+        /// <summary>Starts listening on port (0 = any free port) and returns the port in use. loopbackOnly keeps it off the network.</summary>
+        public int Start(int port, bool loopbackOnly = false)
         {
             lock (this)
             {
-                var l = new TcpListener(IPAddress.Any, port);
+                var l = new TcpListener(loopbackOnly ? IPAddress.Loopback : IPAddress.Any, port);
                 l.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 l.Start(16);
                 listener = l;

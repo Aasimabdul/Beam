@@ -3,9 +3,9 @@ name: Build Windows
 on:
   push:
     branches: [main]
-    paths: ['windows/**', '.github/workflows/windows.yml']
+    paths: ['windows/**', 'core/**', 'tests/**', '.github/workflows/windows.yml']
   pull_request:
-    paths: ['windows/**', '.github/workflows/windows.yml']
+    paths: ['windows/**', 'core/**', 'tests/**', '.github/workflows/windows.yml']
   workflow_dispatch:
 
 permissions:
@@ -24,7 +24,7 @@ jobs:
       - name: Protocol tests (DLNA core)
         env:
           BEAM_SKIP_LIVE: '1'
-        run: dotnet run --project windows/Tests -c Release
+        run: dotnet run --project tests -c Release
 
       - name: Build Beam.exe (.NET Framework 4.8, WPF)
         run: dotnet build windows/Beam/Beam.csproj -c Release -o out
