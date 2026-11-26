@@ -1,0 +1,52 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [main]
+    paths: ['windows/**', '.github/workflows/windows.yml']
+  pull_request:
+    paths: ['windows/**', '.github/workflows/windows.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Protocol tests (DLNA core)
+        env:
+          BEAM_SKIP_LIVE: '1'
+        run: dotnet run --project windows/Tests -c Release
+
+      - name: Build Beam.exe (.NET Framework 4.8, WPF)
+        run: dotnet build windows/Beam/Beam.csproj -c Release -o out
+
+      - name: Exe size
+        shell: bash
+        run: ls -l out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Beam-windows
+          path: out/Beam.exe
+
+      - name: Publish latest Windows build (pre-release)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp out/Beam.exe Beam-windows.exe
+          gh release delete latest-windows --cleanup-tag --yes || true
+          gh release create latest-windows Beam-windows.exe --prerelease \
+            --title "Beam for Windows (latest build)" \
+            --notes "Auto-built from main. Single Beam.exe, needs nothing installed on Windows 10/11 (.NET Framework 4.8 is built in). Not code-signed, so SmartScreen may warn: More info, Run anyway." \
+            --target "$GITHUB_SHA"

@@ -1,0 +1,14 @@
+/home/claude/Beam/windows/Tests/bin/Release/net8.0/Beam.Tests.deps.json
+/home/claude/Beam/windows/Tests/bin/Release/net8.0/Beam.Tests.runtimeconfig.json
+/home/claude/Beam/windows/Tests/bin/Release/net8.0/Beam.Tests.dll
+/home/claude/Beam/windows/Tests/bin/Release/net8.0/Beam.Tests.pdb
+/home/claude/Beam/windows/Tests/obj/Release/net8.0/Beam.Tests.GeneratedMSBuildEditorConfig.editorconfig
+/home/claude/Beam/windows/Tests/obj/Release/net8.0/Beam.Tests.AssemblyInfoInputs.cache
+/home/claude/Beam/windows/Tests/obj/Release/net8.0/Beam.Tests.AssemblyInfo.cs
+/home/claude/Beam/windows/Tests/obj/Release/net8.0/Beam.Tests.csproj.CoreCompileInputs.cache
+/home/claude/Beam/windows/Tests/obj/Release/net8.0/Beam.Tests.sourcelink.json
+/home/claude/Beam/windows/Tests/obj/Release/net8.0/Beam.Tests.dll
+/home/claude/Beam/windows/Tests/obj/Release/net8.0/refint/Beam.Tests.dll
+/home/claude/Beam/windows/Tests/obj/Release/net8.0/Beam.Tests.pdb
+/home/claude/Beam/windows/Tests/obj/Release/net8.0/Beam.Tests.genruntimeconfig.cache
+/home/claude/Beam/windows/Tests/obj/Release/net8.0/ref/Beam.Tests.dll

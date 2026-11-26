@@ -3,6 +3,7 @@ name: Build APK
 on:
   push:
     branches: [main]
+    paths-ignore: ['windows/**', '.github/workflows/windows.yml']
   pull_request:
   workflow_dispatch:
 
