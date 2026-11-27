@@ -1,6 +1,6 @@
 name: Release
 
-# Push a tag like v0.1.0 to build a signed APK and publish it on the Releases page.
+# Push a tag like v0.1.0 to build Android + Windows + Linux and publish them on the Releases page.
 on:
   push:
     tags: ['v*']
@@ -9,34 +9,44 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  android:
     runs-on: ubuntu-latest
+    outputs:
+      stable_key: ${{ steps.key.outputs.stable }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
-
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Decode keystore
+      - name: Signing key (your own if the secrets exist, otherwise a one-off key)
+        id: key
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
-        run: |
-          if [ -z "$KEYSTORE_B64" ]; then
-            echo "::error::Secret KEYSTORE_B64 is missing. See 'Releasing' in the README."
-            exit 1
-          fi
-          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/beam.jks"
-
-      - name: Build signed release APK
-        env:
-          KEYSTORE_PATH: ${{ runner.temp }}/beam.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/beam.jks"
+            echo "stable=yes" >> "$GITHUB_OUTPUT"
+            echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+          else
+            keytool -genkeypair -keystore "$RUNNER_TEMP/beam.jks" -alias beam -keyalg RSA -keysize 2048 \
+              -validity 10000 -storepass beamtemp -keypass beamtemp -dname "CN=Beam one-off build"
+            echo "stable=no" >> "$GITHUB_OUTPUT"
+            echo "KEYSTORE_PASSWORD=beamtemp" >> "$GITHUB_ENV"
+            echo "KEY_ALIAS=beam" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=beamtemp" >> "$GITHUB_ENV"
+            echo "::warning::No KEYSTORE_B64 secret: signed with a one-off key. Run scripts/setup-release.sh for a stable key."
+          fi
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/beam.jks" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
         run: ./gradlew :app:assembleRelease --no-daemon
 
       - name: Name and verify the APK
@@ -45,11 +55,64 @@ jobs:
           APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
           "$APKSIGNER" verify --print-certs "Beam-${GITHUB_REF_NAME}.apk"
           ls -l "Beam-${GITHUB_REF_NAME}.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Beam-android
+          path: Beam-*.apk
 
-      - name: Publish release
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Protocol tests (DLNA core)
+        env:
+          BEAM_SKIP_LIVE: '1'
+        run: dotnet run --project tests -c Release
+      - name: Build Beam.exe
+        run: dotnet build windows/Beam/Beam.csproj -c Release -o out
+      - name: Name the exe
+        shell: bash
+        run: cp out/Beam.exe "Beam-${GITHUB_REF_NAME}-windows.exe"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Beam-windows
+          path: Beam-*-windows.exe
+
+  linux:
+    uses: ./.github/workflows/linux-desktop.yml
+
+  publish:
+    needs: [android, windows, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+      - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
+          STABLE: ${{ needs.android.outputs.stable_key }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "Beam-${GITHUB_REF_NAME}.apk" \
-            --title "Beam ${GITHUB_REF_NAME}" \
-            --notes "Install the APK, open Beam, switch the receiver on, then cast from BubbleUPnP, VLC, Windows (Cast to device) or any DLNA app. Fully local: no cloud, no accounts."
+          mkdir out
+          find assets -type f -exec cp {} out/ \;
+          cd out
+          for f in beam-linux-x64.tar.gz; do [ -f "$f" ] && mv "$f" "Beam-${GITHUB_REF_NAME}-linux-x64.tar.gz"; done
+          NOTE=""
+          if [ "$STABLE" != "yes" ]; then
+            NOTE=$'\n\nAndroid note: this APK is signed with a one-off key, so a later Beam release cannot install over it (uninstall first).'
+          fi
+          cat > ../notes.md <<EOF
+          First Beam release: a tiny offline DLNA/UPnP receiver. No cloud, no account.
+
+          **How to use:** open Beam (Home shows *Ready to cast*), then cast from VLC, BubbleUPnP, Windows (Cast to device) or any DLNA app. Name, picture mode and other options are on the Settings tab.
+
+          - **Android:** Beam-${GITHUB_REF_NAME}.apk
+          - **Windows 10/11:** Beam-${GITHUB_REF_NAME}-windows.exe (single file, not code-signed: SmartScreen may warn, choose More info, Run anyway; allow Private networks in the Firewall prompt)
+          - **Linux:** .AppImage, .deb, .rpm or .tar.gz (needs mpv installed)
+
+          Chrome's own Cast button is not supported (it needs a Google licence); use a DLNA app.$NOTE
+          EOF
+          gh release create "$GITHUB_REF_NAME" * --repo "$GITHUB_REPOSITORY" --title "Beam ${GITHUB_REF_NAME}" --notes-file ../notes.md
