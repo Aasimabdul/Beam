@@ -29,6 +29,8 @@ import android.widget.Toast
 class MainActivity : Activity() {
     private lateinit var home: ScrollView
     private lateinit var settings: ScrollView
+    private lateinit var tabHome: TextView
+    private lateinit var tabSettings: TextView
     private lateinit var headline: TextView
     private lateinit var detail: TextView
     private lateinit var overlay: TextView
@@ -49,25 +51,42 @@ class MainActivity : Activity() {
         applyOrientation()
         home = ScrollView(this).apply {
             setBackgroundColor(BG)
-            clipToPadding = false
             isFillViewport = true
             addView(buildHome())
-            applyInsets(this)
         }
         settings = ScrollView(this).apply {
             setBackgroundColor(BG)
-            clipToPadding = false
             isFillViewport = true
             visibility = View.GONE
             addView(buildSettings())
-            applyInsets(this)
         }
-        setContentView(FrameLayout(this).apply {
-            setBackgroundColor(BG)
+        val body = FrameLayout(this).apply {
             addView(home, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             addView(settings, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        }
+        tabHome = tab("Home") { showSettings(false) }
+        tabSettings = tab("Settings") { showSettings(true) }
+        val tabs = LinearLayout(this).apply {
+            setBackgroundColor(CARD)
+            addView(tabHome, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(tabSettings, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        setContentView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(BG)
+            addView(body, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+            addView(tabs, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            applyInsets(this)
         })
+        showSettings(false)
         startReceiverIfNeeded()
+    }
+
+    private fun tab(label: String, onClick: () -> Unit): TextView = tv(label, 15f, MUTED, true).apply {
+        gravity = android.view.Gravity.CENTER
+        setPadding(0, dp(15), 0, dp(15))
+        isClickable = true
+        setOnClickListener { onClick() }
     }
 
     private fun buildHome(): View {
@@ -77,12 +96,9 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(20), dp(20), dp(28))
         }
-        val top = LinearLayout(this).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
-        top.addView(tv("Beam", 26f, ACCENT, true), LinearLayout.LayoutParams(0, wrap, 1f))
-        top.addView(pill("Settings") { showSettings(true) }, LinearLayout.LayoutParams(dp(104), wrap))
-        col.addView(top, LinearLayout.LayoutParams(match, wrap))
+        col.addView(tv("Beam", 26f, ACCENT, true))
 
-        headline = tv("Beam is ready", 30f, NEON, true).apply { setPadding(0, dp(40), 0, 0) }
+        headline = tv("Beam is ready", 30f, NEON, true).apply { setPadding(0, dp(36), 0, 0) }
         col.addView(headline)
         detail = tv("Starting receiver…", 14f, MUTED).apply { setPadding(0, dp(6), 0, dp(18)) }
         col.addView(detail)
@@ -111,10 +127,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(20), dp(20), dp(28))
         }
-        val top = LinearLayout(this).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
-        top.addView(pill("Back") { showSettings(false) }, LinearLayout.LayoutParams(dp(84), wrap))
-        top.addView(tv("Settings", 22f, FG, true).apply { setPadding(dp(16), 0, 0, 0) }, LinearLayout.LayoutParams(0, wrap, 1f))
-        col.addView(top, LinearLayout.LayoutParams(match, wrap))
+        col.addView(tv("Settings", 26f, ACCENT, true))
 
         col.addView(label("Name on the network"))
         nameField = input("Name", Prefs.name(this), InputType.TYPE_CLASS_TEXT).apply {
@@ -162,6 +175,8 @@ class MainActivity : Activity() {
     private fun showSettings(on: Boolean) {
         settings.visibility = if (on) View.VISIBLE else View.GONE
         home.visibility = if (on) View.GONE else View.VISIBLE
+        tabHome.setTextColor(if (on) MUTED else ACCENT)
+        tabSettings.setTextColor(if (on) ACCENT else MUTED)
         if (on) nameField.setText(Prefs.name(this))
         refresh()
     }

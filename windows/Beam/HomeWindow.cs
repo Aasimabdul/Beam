@@ -33,6 +33,8 @@ namespace Beam
         private readonly CheckBox fullBox = new CheckBox { Content = "Open videos and photos full screen", Foreground = Brushes.White, FontSize = 14, Margin = new Thickness(0, 6, 0, 0) };
         private readonly CheckBox startBox = new CheckBox { Content = "Start Beam with Windows (in the tray)", Foreground = Brushes.White, FontSize = 14, Margin = new Thickness(0, 10, 0, 0) };
         private readonly DispatcherTimer timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        private readonly Border tabHome = new Border { BorderThickness = new Thickness(0, 0, 0, 3), Padding = new Thickness(0, 12, 0, 10), Cursor = System.Windows.Input.Cursors.Hand, Background = Brushes.Transparent };
+        private readonly Border tabSettings = new Border { BorderThickness = new Thickness(0, 0, 0, 3), Padding = new Thickness(0, 12, 0, 10), Cursor = System.Windows.Input.Cursors.Hand, Background = Brushes.Transparent };
         private bool syncing;
         private int tick;
 
@@ -51,10 +53,28 @@ namespace Beam
 
             homePanel.Content = BuildHome();
             settingsPanel.Content = BuildSettings();
+            tabHome.Child = new TextBlock { Text = "Home", FontSize = 15, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center };
+            tabSettings.Child = new TextBlock { Text = "Settings", FontSize = 15, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center };
+            tabHome.MouseLeftButtonUp += delegate { ShowPage(false); };
+            tabSettings.MouseLeftButtonUp += delegate { ShowPage(true); };
+            var tabs = new Grid { Background = Card };
+            tabs.ColumnDefinitions.Add(new ColumnDefinition());
+            tabs.ColumnDefinitions.Add(new ColumnDefinition());
+            Grid.SetColumn(tabSettings, 1);
+            tabs.Children.Add(tabHome);
+            tabs.Children.Add(tabSettings);
+
+            var body = new Grid();
+            body.Children.Add(homePanel);
+            body.Children.Add(settingsPanel);
             var root = new Grid { Background = Bg };
-            root.Children.Add(homePanel);
-            root.Children.Add(settingsPanel);
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition());
+            Grid.SetRow(body, 1);
+            root.Children.Add(tabs);
+            root.Children.Add(body);
             Content = root;
+            UpdateTabs(false);
 
             timer.Tick += delegate { Refresh(); };
             IsVisibleChanged += delegate
@@ -84,7 +104,20 @@ namespace Beam
         {
             settingsPanel.Visibility = settings ? Visibility.Visible : Visibility.Collapsed;
             homePanel.Visibility = settings ? Visibility.Collapsed : Visibility.Visible;
+            UpdateTabs(settings);
             if (settings) LoadSettings();
+        }
+
+        private void UpdateTabs(bool settings)
+        {
+            Style(tabHome, !settings);
+            Style(tabSettings, settings);
+        }
+
+        private static void Style(Border tab, bool active)
+        {
+            tab.BorderBrush = active ? Accent : Brushes.Transparent;
+            ((TextBlock)tab.Child).Foreground = active ? Accent : Muted;
         }
 
         // ------------------------------------------------------------------ pieces
@@ -123,13 +156,7 @@ namespace Beam
 
         private UIElement BuildHome()
         {
-            var col = new StackPanel { Margin = new Thickness(28, 18, 28, 24) };
-
-            var top = new DockPanel { LastChildFill = false, Margin = new Thickness(0, 0, 0, 6) };
-            Button settings = Flat("⚙  Settings", delegate { ShowPage(true); });
-            DockPanel.SetDock(settings, Dock.Right);
-            top.Children.Add(settings);
-            col.Children.Add(top);
+            var col = new StackPanel { Margin = new Thickness(28, 24, 28, 24) };
 
             col.Children.Add(new Path { Data = Geometry.Parse(CastPath), Fill = Accent, Stretch = Stretch.Uniform, Width = 84, Height = 84, Margin = new Thickness(0, 4, 0, 14), HorizontalAlignment = HorizontalAlignment.Center });
 
@@ -168,17 +195,7 @@ namespace Beam
 
         private UIElement BuildSettings()
         {
-            var col = new StackPanel { Margin = new Thickness(28, 18, 28, 24) };
-
-            var top = new DockPanel { Margin = new Thickness(0, 0, 0, 14) };
-            Button back = Flat("←  Back", delegate { ShowPage(false); });
-            DockPanel.SetDock(back, Dock.Left);
-            top.Children.Add(back);
-            var head = Text("Settings", 24, Brushes.White, FontWeights.SemiBold);
-            head.Margin = new Thickness(18, 0, 0, 0);
-            head.VerticalAlignment = VerticalAlignment.Center;
-            top.Children.Add(head);
-            col.Children.Add(top);
+            var col = new StackPanel { Margin = new Thickness(28, 24, 28, 24) };
 
             var name = new StackPanel();
             name.Children.Add(Text("Receiver name", 17, Brushes.White, FontWeights.SemiBold));

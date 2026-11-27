@@ -18,6 +18,6 @@
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\Core\*.cs" Link="Core\%(Filename)%(Extension)" />
+    <Compile Include="..\..\core\*.cs" Link="Core\%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

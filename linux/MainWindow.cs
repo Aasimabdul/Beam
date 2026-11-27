@@ -23,6 +23,10 @@ internal sealed class MainWindow : Window
     private readonly ComboBox aspectPicker;
     private readonly Button muteButton;
     private bool mute;
+    private readonly ScrollViewer homePage;
+    private readonly ScrollViewer settingsPage;
+    private readonly Button homeTab;
+    private readonly Button settingsTab;
 
     public MainWindow()
     {
@@ -45,19 +49,6 @@ internal sealed class MainWindow : Window
             Foreground = AccentBrush
         };
         renameButton.Click += async (_, _) => await ShowRenameDialog();
-
-        var brand = new TextBlock
-        {
-            Text = "BEAM",
-            FontSize = 14,
-            FontWeight = FontWeight.Bold,
-            Foreground = AccentBrush,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        var topBar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 22) };
-        topBar.Children.Add(brand);
-        Grid.SetColumn(renameButton, 1);
-        topBar.Children.Add(renameButton);
 
         deviceName = new TextBlock { Text = receiver.Name, FontSize = 25, FontWeight = FontWeight.SemiBold };
         status = new TextBlock { Text = "Starting receiver…", FontSize = 14, Foreground = MutedBrush };
@@ -168,16 +159,73 @@ internal sealed class MainWindow : Window
             Margin = new Thickness(0, 4, 0, 0)
         };
 
-        var content = new StackPanel { Spacing = 16 };
-        content.Children.Add(topBar);
-        content.Children.Add(castCard);
-        content.Children.Add(stepsCard);
-        content.Children.Add(controlsCard);
-        content.Children.Add(footer);
-        Content = new ScrollViewer { Content = new Border { Padding = new Thickness(24), Child = content } };
+        var renameTitle = new TextBlock { Text = "Name on the network", FontSize = 17, FontWeight = FontWeight.SemiBold };
+        var renameNote = new TextBlock { Text = "This is the name other devices see in their cast list.", FontSize = 12, Foreground = MutedBrush };
+        var renameCard = new Border
+        {
+            Background = PanelBrush,
+            BorderBrush = BorderBrush,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(18),
+            Padding = new Thickness(22),
+            Child = new StackPanel { Spacing = 12, Children = { renameTitle, renameNote, renameButton } }
+        };
+
+        var homePanel = new StackPanel { Spacing = 16 };
+        homePanel.Children.Add(castCard);
+        homePanel.Children.Add(stepsCard);
+        homePanel.Children.Add(footer);
+        homePage = new ScrollViewer { Content = new Border { Padding = new Thickness(24), Child = homePanel } };
+
+        var settingsPanel = new StackPanel { Spacing = 16 };
+        settingsPanel.Children.Add(renameCard);
+        settingsPanel.Children.Add(controlsCard);
+        settingsPage = new ScrollViewer { IsVisible = false, Content = new Border { Padding = new Thickness(24), Child = settingsPanel } };
+
+        homeTab = MakeTab("Home", () => ShowPage(false));
+        settingsTab = MakeTab("Settings", () => ShowPage(true));
+        var tabs = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*"), Background = PanelBrush };
+        Grid.SetColumn(settingsTab, 1);
+        tabs.Children.Add(homeTab);
+        tabs.Children.Add(settingsTab);
+        Grid.SetRow(tabs, 1);
+
+        var pages = new Grid();
+        pages.Children.Add(homePage);
+        pages.Children.Add(settingsPage);
+        var root = new Grid { RowDefinitions = new RowDefinitions("*,Auto") };
+        root.Children.Add(pages);
+        root.Children.Add(tabs);
+        Content = root;
+        ShowPage(false);
 
         Opened += (_, _) => StartReceiverAutomatically();
         Closed += (_, _) => receiver.Dispose();
+    }
+
+    private Button MakeTab(string label, Action onClick)
+    {
+        var b = new Button
+        {
+            Content = label,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            Padding = new Thickness(0, 14),
+            FontSize = 15,
+            FontWeight = FontWeight.SemiBold,
+            Background = PanelBrush,
+            CornerRadius = new CornerRadius(0)
+        };
+        b.Click += (_, _) => onClick();
+        return b;
+    }
+
+    private void ShowPage(bool settings)
+    {
+        settingsPage.IsVisible = settings;
+        homePage.IsVisible = !settings;
+        homeTab.Foreground = settings ? MutedBrush : AccentBrush;
+        settingsTab.Foreground = settings ? AccentBrush : MutedBrush;
     }
 
     private static StackPanel MakeControlRow(string glyph, string label, Control control, Control? trailing = null)

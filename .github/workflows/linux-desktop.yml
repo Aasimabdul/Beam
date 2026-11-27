@@ -5,12 +5,12 @@ on:
     branches: [main, feature/linux-desktop, feature/linux-ui-refresh]
     paths:
       - 'linux/**'
-      - 'windows/Core/**'
+      - 'core/**'
       - '.github/workflows/linux-desktop.yml'
   pull_request:
     paths:
       - 'linux/**'
-      - 'windows/Core/**'
+      - 'core/**'
       - '.github/workflows/linux-desktop.yml'
   workflow_dispatch:
 
