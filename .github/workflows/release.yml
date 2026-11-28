@@ -4,9 +4,17 @@ name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to create, e.g. v0.1.0'
+        required: true
 
 permissions:
   contents: write
+
+env:
+  TAG: ${{ github.event.inputs.version || github.ref_name }}
 
 jobs:
   android:
@@ -51,10 +59,10 @@ jobs:
 
       - name: Name and verify the APK
         run: |
-          cp app/build/outputs/apk/release/app-release.apk "Beam-${GITHUB_REF_NAME}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "Beam-${TAG}.apk"
           APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
-          "$APKSIGNER" verify --print-certs "Beam-${GITHUB_REF_NAME}.apk"
-          ls -l "Beam-${GITHUB_REF_NAME}.apk"
+          "$APKSIGNER" verify --print-certs "Beam-${TAG}.apk"
+          ls -l "Beam-${TAG}.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: Beam-android
@@ -75,7 +83,7 @@ jobs:
         run: dotnet build windows/Beam/Beam.csproj -c Release -o out
       - name: Name the exe
         shell: bash
-        run: cp out/Beam.exe "Beam-${GITHUB_REF_NAME}-windows.exe"
+        run: cp out/Beam.exe "Beam-${TAG}-windows.exe"
       - uses: actions/upload-artifact@v4
         with:
           name: Beam-windows
@@ -99,7 +107,7 @@ jobs:
           mkdir out
           find assets -type f -exec cp {} out/ \;
           cd out
-          for f in beam-linux-x64.tar.gz; do [ -f "$f" ] && mv "$f" "Beam-${GITHUB_REF_NAME}-linux-x64.tar.gz"; done
+          for f in beam-linux-x64.tar.gz; do [ -f "$f" ] && mv "$f" "Beam-${TAG}-linux-x64.tar.gz"; done
           NOTE=""
           if [ "$STABLE" != "yes" ]; then
             NOTE=$'\n\nAndroid note: this APK is signed with a one-off key, so a later Beam release cannot install over it (uninstall first).'
@@ -109,10 +117,10 @@ jobs:
 
           **How to use:** open Beam (Home shows *Ready to cast*), then cast from VLC, BubbleUPnP, Windows (Cast to device) or any DLNA app. Name, picture mode and other options are on the Settings tab.
 
-          - **Android:** Beam-${GITHUB_REF_NAME}.apk
-          - **Windows 10/11:** Beam-${GITHUB_REF_NAME}-windows.exe (single file, not code-signed: SmartScreen may warn, choose More info, Run anyway; allow Private networks in the Firewall prompt)
+          - **Android:** Beam-${TAG}.apk
+          - **Windows 10/11:** Beam-${TAG}-windows.exe (single file, not code-signed: SmartScreen may warn, choose More info, Run anyway; allow Private networks in the Firewall prompt)
           - **Linux:** .AppImage, .deb, .rpm or .tar.gz (needs mpv installed)
 
           Chrome's own Cast button is not supported (it needs a Google licence); use a DLNA app.$NOTE
           EOF
-          gh release create "$GITHUB_REF_NAME" * --repo "$GITHUB_REPOSITORY" --title "Beam ${GITHUB_REF_NAME}" --notes-file ../notes.md
+          gh release create "$TAG" * --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Beam ${TAG}" --notes-file ../notes.md
